@@ -28,7 +28,7 @@ static int read_file_line(const char *path, char *buf, int len) {
     return l;
 }
 
-static int read_file_all(const char *path, char *buf, int len) {
+static int __attribute__((unused)) read_file_all(const char *path, char *buf, int len) {
     FILE *f = fopen(path, "r");
     if (!f) { buf[0] = 0; return -1; }
     int total = 0;
@@ -406,7 +406,7 @@ int jetson_test_network(JetsonBootstrap *bs, float *avg_dns_ms,
 
     for (int i = 0; i < test_rounds; i++) {
         /* DNS test: time a simple DNS lookup */
-        char cmd[128];
+        char cmd[256];
         snprintf(cmd, sizeof(cmd),
             "python3 -c \"import time;t=time.time();__import__('socket').gethostbyname('api.github.com');print(f'{time.time()-t:.3f}')\" 2>/dev/null");
         char result[64];
@@ -515,7 +515,7 @@ int jetson_report(JetsonBootstrap *bs, char *out, int max_len) {
         "- CPU: %ux %s @ %u MHz\n"
         "- GPU: %u CUDA cores (%s)\n"
         "- RAM: %u MB total, %u MB available\n"
-        "- Storage: %u GB NVMe\n"
+        "- Storage: %lu GB NVMe\n"
         "- Power Mode: %s\n"
         "- Thermal Zones: %u\n"
         "- Fingerprint: 0x%016lx\n\n",
@@ -649,7 +649,7 @@ int jetson_save(const JetsonBootstrap *bs, const char *path) {
     fprintf(f, "nvcc_path=%s\n", bs->env.nvcc_path);
     fprintf(f, "total_ram_mb=%u\n", bs->profile.total_ram_mb);
     fprintf(f, "shared_ram_mb=%u\n", bs->profile.shared_ram_mb);
-    fprintf(f, "nvme_size_gb=%u\n", bs->profile.nvme_size_gb);
+    fprintf(f, "nvme_size_gb=%lu\n", (unsigned long)bs->profile.nvme_size_gb);
     fprintf(f, "power_mode=%s\n", bs->profile.power_mode);
     fprintf(f, "fingerprint=0x%016lx\n", (unsigned long)bs->profile.fingerprint);
     fprintf(f, "has_git=%d\n", bs->env.has_git);
@@ -684,42 +684,52 @@ int jetson_bootstrap_run(JetsonBootstrap *bs) {
 
     int step = 0;
     snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-        "[%d] Probing hardware...\n", step++);
+        "[%d] Probing hardware...\n", step);
+        step++;
 
     int rc = jetson_probe(bs);
     if (rc != 0) return rc;
 
     snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-        "[%d] Model: %s\n", step++, bs->profile.jetson_model);
+        "[%d] Model: %s\n", step, bs->profile.jetson_model);
+        step++;
 
     snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-        "[%d] Calculating memory budget...\n", step++);
+        "[%d] Calculating memory budget...\n", step);
+        step++;
     jetson_calc_memory_budget(bs);
 
     snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-        "[%d] Agent budget: %u MB\n", step++, bs->memory.agent_budget_mb);
+        "[%d] Agent budget: %u MB\n", step, bs->memory.agent_budget_mb);
+        step++;
 
     if (bs->env.has_nvcc) {
         snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-            "[%d] Testing CUDA...\n", step++);
+            "[%d] Testing CUDA...\n", step);
+            step++;
         float gpu_speed;
         rc = jetson_test_cuda(bs, &gpu_speed);
         snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-            "[%d] CUDA: %s\n", step++, bs->profile.cuda_available ? "OK" : "FAILED");
+            "[%d] CUDA: %s\n", step, bs->profile.cuda_available ? "OK" : "FAILED");
+            step++;
     }
 
     snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-        "[%d] Testing network...\n", step++);
+        "[%d] Testing network...\n", step);
+        step++;
     float dns_ms, api_ms;
     jetson_test_network(bs, &dns_ms, &api_ms, 3);
     snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-        "[%d] DNS: %.0fms, API: %.0fms\n", step++, dns_ms, api_ms);
+        "[%d] DNS: %.0fms, API: %.0fms\n", step, dns_ms, api_ms);
+        step++;
 
     snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-        "[%d] Known workarounds: %d\n", step++, bs->workaround_count);
+        "[%d] Known workarounds: %d\n", step, bs->workaround_count);
+        step++;
 
     snprintf(bs->boot_log + step * 100, sizeof(bs->boot_log) - step * 100,
-        "[%d] Bootstrap complete.\n", step++);
+        "[%d] Bootstrap complete.\n", step);
+        step++;
     bs->boot_step = step;
 
     /* Generate report file */
